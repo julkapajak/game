@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Warcaby</title>
+<style>
+  :root {
+    --dark-square: #6b4226;
+    --light-square: #eaddc7;
+    --board-border: #3e2916;
+    --highlight: #ffd54f;
+    --move-dot: rgba(76, 175, 80, 0.85);
+    --capture-dot: rgba(244, 67, 54, 0.85);
+    --piece-white: #f5f5f5;
+    --piece-white-border: #b0b0b0;
+    --piece-black: #262626;
+    --piece-black-border: #000;
+    --bg: #1b1207;
+    --panel-bg: #2a1c10;
+    --text: #f2e9dc;
+    --accent: #ffb74d;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: radial-gradient(circle at top, #3a2415, var(--bg));
+    color: var(--text);
+    font-family: 'Segoe UI', Tahoma, Verdana, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 24px 12px 48px;
+  }
+  h1 {
+    margin: 0 0 4px;
+    font-size: 2rem;
+    letter-spacing: 2px;
+    color: var(--accent);
+    text-shadow: 0 2px 6px rgba(0,0,0,0.5);
+  }
+  .subtitle {
+    margin: 0 0 20px;
+    opacity: 0.75;
+    font-size: 0.95rem;
+  }
+  .layout {
+    display: flex;
+    gap: 24px;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .board-wrap {
+    background: var(--board-border);
+    padding: 10px;
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+  }
+  #board {
+    display: grid;
+    grid-template-columns: repeat(8, min(11vw, 62px));
+    grid-template-rows: repeat(8, min(11vw, 62px));
+    border: 3px solid var(--board-border);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .square {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .square.light { background: var(--light-square); }
+  .square.dark { background: var(--dark-square); }
+  .square.selected { outline: 3px solid var(--highlight); outline-offset: -3px; }
+  .dot {
+    width: 26%;
+    height: 26%;
+    border-radius: 50%;
+    background: var(--move-dot);
+    pointer-events: none;
+  }
+  .dot.capture { background: var(--capture-dot); }
+  .piece {
+    width: 80%;
+    height: 80%;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.3rem;
+    user-select: none;
+    box-shadow: inset 0 -4px 6px rgba(0,0,0,0.25), 0 3px 6px rgba(0,0,0,0.5);
+    transition: transform 0.12s ease;
+  }
+  .piece:hover { transform: scale(1.06); }
+  .piece.white { background: var(--piece-white); border: 2px solid var(--piece-white-border); color: #333; }
+  .piece.black { background: var(--piece-black); border: 2px solid var(--piece-black-border); color: #eee; }
+  .piece.king::after { content: "♔"; }
+  .piece.selected-piece { box-shadow: 0 0 0 3px var(--highlight), inset 0 -4px 6px rgba(0,0,0,0.25); }
+
+  .panel {
+    background: var(--panel-bg);
+    border-radius: 12px;
+    padding: 18px 22px;
+    min-width: 220px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+  }
+  .panel h2 {
+    margin-top: 0;
+    font-size: 1.1rem;
+    color: var(--accent);
+    border-bottom: 1px solid rgba(255,255,255,0.15);
+    padding-bottom: 8px;
+  }
+  .turn-indicator {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 1.05rem;
+    margin-bottom: 14px;
+  }
+  .turn-dot {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    box-shadow: inset 0 -3px 4px rgba(0,0,0,0.25);
+  }
+  .turn-dot.white { background: var(--piece-white); border: 2px solid var(--piece-white-border); }
+  .turn-dot.black { background: var(--piece-black); border: 2px solid var(--piece-black-border); }
+  .score-row {
+    display: flex;
+    justify-content: space-between;
+    margin: 6px 0;
+    font-size: 0.95rem;
+  }
+  .status-msg {
+    margin: 14px 0;
+    min-height: 1.4em;
+    font-weight: 600;
+    color: var(--accent);
+  }
+  button {
+    background: var(--accent);
+    color: #2a1c10;
+    border: none;
+    padding: 10px 16px;
+    border-radius: 8px;
+    font-weight: 700;
+    cursor: pointer;
+    font-size: 0.95rem;
+    width: 100%;
+  }
+  button:hover { filter: brightness(1.08); }
+  .rules {
+    margin-top: 16px;
+    font-size: 0.82rem;
+    line-height: 1.5;
+    opacity: 0.8;
+  }
+</style>
+</head>
+<body>
+  <h1>Warcaby</h1>
+  <p class="subtitle">Klasyczna gra dla dwóch graczy — na jednym urządzeniu</p>
+
+  <div class="layout">
+    <div class="board-wrap">
+      <div id="board"></div>
+    </div>
+
+    <div class="panel">
+      <h2>Stan gry</h2>
+      <div class="turn-indicator">
+        <div class="turn-dot" id="turnDot"></div>
+        <span id="turnText">Ruch: Białe</span>
+      </div>
+      <div class="score-row"><span>Białe pionki:</span><span id="whiteCount">12</span></div>
+      <div class="score-row"><span>Czarne pionki:</span><span id="blackCount">12</span></div>
+      <div class="status-msg" id="statusMsg"></div>
+      <button id="resetBtn">Nowa gra</button>
+      <div class="rules">
+        <strong>Zasady:</strong> Białe zaczynają. Pionki biją do przodu i do tyłu po skosie, jeśli jest taka możliwość — bicie jest obowiązkowe, a wielokrotne bicie kontynuuje ten sam pionek. Po dotarciu do ostatniego rzędu pionek zostaje damką (♔) i porusza się oraz bije w obu kierunkach.
+      </div>
+    </div>
+  </div>
+
+<script>
+(function () {
+  const SIZE = 8;
+  const EMPTY = null;
+  const WHITE = 'white';
+  const BLACK = 'black';
+
+  let board = [];
+  let currentPlayer = WHITE;
+  let selected = null; // {r, c}
+  let legalMovesForSelected = [];
+  let mustContinueFrom = null; // {r,c} when mid multi-jump
+  let gameOver = false;
+
+  const boardEl = document.getElementById('board');
+  const turnTextEl = document.getElementById('turnText');
+  const turnDotEl = document.getElementById('turnDot');
+  const whiteCountEl = document.getElementById('whiteCount');
+  const blackCountEl = document.getElementById('blackCount');
+  const statusMsgEl = document.getElementById('statusMsg');
+  const resetBtn = document.getElementById('resetBtn');
+
+  function initBoard() {
+    board = Array.from({ length: SIZE }, () => Array(SIZE).fill(EMPTY));
+    for (let r = 0; r < SIZE; r++) {
+      for (let c = 0; c < SIZE; c++) {
+        if ((r + c) % 2 === 1) {
+          if (r < 3) board[r][c] = { color: BLACK, king: false };
+          else if (r > 4) board[r][c] = { color: WHITE, king: false };
+        }
+      }
+    }
+    currentPlayer = WHITE;
+    selected = null;
+    legalMovesForSelected = [];
+    mustContinueFrom = null;
+    gameOver = false;
+    statusMsgEl.textContent = '';
+    render();
+  }
+
+  function opponent(color) {
+    return color === WHITE ? BLACK : WHITE;
+  }
+
+  function inBounds(r, c) {
+    return r >= 0 && r < SIZE && c >= 0 && c < SIZE;
+  }
+
+  function directionsFor(piece) {
+    if (piece.king) return [[-1, -1], [-1, 1], [1, -1], [1, 1]];
+    return piece.color === WHITE ? [[-1, -1], [-1, 1]] : [[1, -1], [1, 1]];
+  }
+
+  // Returns { simpleMoves: [{r,c}], captureMoves: [{r,c, capturedR, capturedC}] }
+  function movesFrom(r, c) {
+    const piece = board[r][c];
+    if (!piece) return { simpleMoves: [], captureMoves: [] };
+    const simpleMoves = [];
+    const captureMoves = [];
+    const dirs = directionsFor(piece);
+
+    for (const [dr, dc] of dirs) {
+      const nr = r + dr, nc = c + dc;
+      if (inBounds(nr, nc) && board[nr][nc] === EMPTY) {
+        simpleMoves.push({ r: nr, c: nc });
+      }
+      const jr = r + dr * 2, jc = c + dc * 2;
+      if (inBounds(jr, jc) && board[jr][jc] === EMPTY) {
+        const midPiece = board[nr] && board[nr][nc];
+        if (inBounds(nr, nc) && midPiece && midPiece.color === opponent(piece.color)) {
+          captureMoves.push({ r: jr, c: jc, capturedR: nr, capturedC: nc });
+        }
+      }
+    }
+    return { simpleMoves, captureMoves };
+  }
+
+  function allCapturesForPlayer(color) {
+    const result = [];
+    for (let r = 0; r < SIZE; r++) {
+      for (let c = 0; c < SIZE; c++) {
+        const piece = board[r][c];
+        if (piece && piece.color === color) {
+          const { captureMoves } = movesFrom(r, c);
+          if (captureMoves.length) result.push({ r, c, captures: captureMoves });
+        }
+      }
+    }
+    return result;
+  }
+
+  function allSimpleMovesForPlayer(color) {
+    const result = [];
+    for (let r = 0; r < SIZE; r++) {
+      for (let c = 0; c < SIZE; c++) {
+        const piece = board[r][c];
+        if (piece && piece.color === color) {
+          const { simpleMoves } = movesFrom(r, c);
+          if (simpleMoves.length) result.push({ r, c, moves: simpleMoves });
+        }
+      }
+    }
+    return result;
+  }
+
+  function getAvailableActionsForSelection(r, c) {
+    const forcedCaptures = allCapturesForPlayer(currentPlayer);
+    const { simpleMoves, captureMoves } = movesFrom(r, c);
+    if (forcedCaptures.length > 0) {
+      return captureMoves.map(m => ({ ...m, isCapture: true }));
+    }
+    return simpleMoves.map(m => ({ ...m, isCapture: false }));
+  }
+
+  function pieceHasCapture(r, c) {
+    return movesFrom(r, c).captureMoves.length > 0;
+  }
+
+  function selectSquare(r, c) {
+    const piece = board[r][c];
+    const forced = mustContinueFrom;
+
+    if (forced) {
+      if (r !== forced.r || c !== forced.c) return;
+    }
+
+    if (!piece || piece.color !== currentPlayer) return;
+
+    const forcedCaptures = allCapturesForPlayer(currentPlayer);
+    if (forcedCaptures.length > 0 && !pieceHasCapture(r, c)) {
+      statusMsgEl.textContent = 'Bicie jest obowiązkowe — wybierz pionek, który może bić.';
+      return;
+    }
+
+    selected = { r, c };
+    legalMovesForSelected = getAvailableActionsForSelection(r, c);
+    statusMsgEl.textContent = '';
+    render();
+  }
+
+  function applyMove(move) {
+    const from = selected;
+    const piece = board[from.r][from.c];
+    board[from.r][from.c] = EMPTY;
+
+    if (move.isCapture) {
+      board[move.capturedR][move.capturedC] = EMPTY;
+    }
+
+    board[move.r][move.c] = piece;
+
+    // Promotion
+    if (!piece.king) {
+      if ((piece.color === WHITE && move.r === 0) || (piece.color === BLACK && move.r === SIZE - 1)) {
+        piece.king = true;
+      }
+    }
+
+    if (move.isCapture) {
+      const furtherCaptures = movesFrom(move.r, move.c).captureMoves;
+      if (furtherCaptures.length > 0) {
+        selected = { r: move.r, c: move.c };
+        legalMovesForSelected = furtherCaptures.map(m => ({ ...m, isCapture: true }));
+        mustContinueFrom = { r: move.r, c: move.c };
+        render();
+        return;
+      }
+    }
+
+    mustContinueFrom = null;
+    selected = null;
+    legalMovesForSelected = [];
+    endTurn();
+  }
+
+  function endTurn() {
+    currentPlayer = opponent(currentPlayer);
+    checkGameOver();
+    render();
+  }
+
+  function checkGameOver() {
+    const counts = countPieces();
+    if (counts.white === 0) {
+      gameOver = true;
+      statusMsgEl.textContent = 'Koniec gry — wygrywają Czarne!';
+      return;
+    }
+    if (counts.black === 0) {
+      gameOver = true;
+      statusMsgEl.textContent = 'Koniec gry — wygrywają Białe!';
+      return;
+    }
+    const captures = allCapturesForPlayer(currentPlayer);
+    const simples = allSimpleMovesForPlayer(currentPlayer);
+    if (captures.length === 0 && simples.length === 0) {
+      gameOver = true;
+      const winner = opponent(currentPlayer) === WHITE ? 'Białe' : 'Czarne';
+      statusMsgEl.textContent = `Koniec gry — ${currentPlayer === WHITE ? 'Białe' : 'Czarne'} nie mają ruchów. Wygrywają ${winner}!`;
+    }
+  }
+
+  function countPieces() {
+    let white = 0, black = 0;
+    for (let r = 0; r < SIZE; r++) {
+      for (let c = 0; c < SIZE; c++) {
+        const p = board[r][c];
+        if (p) { if (p.color === WHITE) white++; else black++; }
+      }
+    }
+    return { white, black };
+  }
+
+  function handleSquareClick(r, c) {
+    if (gameOver) return;
+
+    if (selected) {
+      const move = legalMovesForSelected.find(m => m.r === r && m.c === c);
+      if (move) {
+        applyMove(move);
+        return;
+      }
+      if (mustContinueFrom) {
+        return;
+      }
+    }
+
+    selectSquare(r, c);
+  }
+
+  function render() {
+    boardEl.innerHTML = '';
+    for (let r = 0; r < SIZE; r++) {
+      for (let c = 0; c < SIZE; c++) {
+        const sq = document.createElement('div');
+        sq.className = 'square ' + (((r + c) % 2 === 1) ? 'dark' : 'light');
+        sq.dataset.r = r;
+        sq.dataset.c = c;
+
+        if (selected && selected.r === r && selected.c === c) {
+          sq.classList.add('selected');
+        }
+
+        const piece = board[r][c];
+        if (piece) {
+          const pieceEl = document.createElement('div');
+          pieceEl.className = 'piece ' + piece.color + (piece.king ? ' king' : '');
+          if (selected && selected.r === r && selected.c === c) {
+            pieceEl.classList.add('selected-piece');
+          }
+          sq.appendChild(pieceEl);
+        }
+
+        if (selected) {
+          const move = legalMovesForSelected.find(m => m.r === r && m.c === c);
+          if (move) {
+            const dot = document.createElement('div');
+            dot.className = 'dot' + (move.isCapture ? ' capture' : '');
+            sq.appendChild(dot);
+          }
+        }
+
+        sq.addEventListener('click', () => handleSquareClick(r, c));
+        boardEl.appendChild(sq);
+      }
+    }
+
+    const counts = countPieces();
+    whiteCountEl.textContent = counts.white;
+    blackCountEl.textContent = counts.black;
+
+    turnTextEl.textContent = 'Ruch: ' + (currentPlayer === WHITE ? 'Białe' : 'Czarne');
+    turnDotEl.className = 'turn-dot ' + currentPlayer;
+  }
+
+  resetBtn.addEventListener('click', initBoard);
+
+  initBoard();
+})();
+</script>
+</body>
+</html>
